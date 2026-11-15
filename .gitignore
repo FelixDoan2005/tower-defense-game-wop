@@ -50,3 +50,11 @@ desktop.ini
 
 # MagicaVoxel / large source exports (uncomment if you don't want them in the repo)
 # *.vox
+
+# Third-party asset packs (licensed; re-import from the store/source instead of committing)
+/Assets/Creepy_Cat/
+/Assets/Creepy_Cat.meta
+/Assets/Vefects/
+/Assets/Vefects.meta
+/Assets/Police Car & Helicopter/
+/Assets/Police Car & Helicopter.meta
