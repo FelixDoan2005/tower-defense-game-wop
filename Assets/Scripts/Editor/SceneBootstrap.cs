@@ -257,7 +257,6 @@ namespace ZombieTD.EditorTools
                 maze.wallHeight = 8f;
                 maze.mazeWidth = 31;
                 maze.mazeHeight = 31;
-                maze.slotReach = 1;
                 maze.cameraPitch = 75f;
                 maze.cameraStartDistance = 120f;
                 maze.cameraMinDistance = 30f;

@@ -39,6 +39,11 @@ namespace ZombieTD.Enemies
         [Header("Pooling")]
         [SerializeField] int prewarmCount = 1500;
 
+        [Header("Horde size (multiplies the numbers above)")]
+        [SerializeField, Min(1f), Tooltip("Zombie count and spawn rate are multiplied by this: tiny zombies, huge crowds.")] float hordeScale = 6f;
+        [SerializeField, Tooltip("Alive-zombie cap used if it is higher than Max Alive.")] int hordeMaxAlive = 6000;
+        [SerializeField, Tooltip("Pool size created at startup if it is higher than Prewarm Count.")] int hordePrewarm = 3000;
+
         public int CurrentWave { get; private set; }
         public int TotalWaves => totalWaves;
         public bool IsWaveActive { get; private set; }
@@ -56,7 +61,7 @@ namespace ZombieTD.Enemies
         {
             if (zombies == null) zombies = ZombieManager.Instance;
             grid = level != null ? level.Grid : zombies.Grid;
-            PoolManager.Instance.Prewarm(zombiePrefab.gameObject, prewarmCount);
+            PoolManager.Instance.Prewarm(zombiePrefab.gameObject, Mathf.Max(prewarmCount, hordePrewarm));
             Countdown = firstWaveDelay;
             GameManager.Instance.SetWave(0, totalWaves);
         }
@@ -79,7 +84,7 @@ namespace ZombieTD.Enemies
             if (RemainingToSpawn > 0)
             {
                 spawnAccumulator += spawnRate * dt;
-                while (spawnAccumulator >= 1f && RemainingToSpawn > 0 && zombies.ActiveCount < maxAlive)
+                while (spawnAccumulator >= 1f && RemainingToSpawn > 0 && zombies.ActiveCount < Mathf.Max(maxAlive, hordeMaxAlive))
                 {
                     SpawnOne();
                     spawnAccumulator -= 1f;
@@ -105,8 +110,8 @@ namespace ZombieTD.Enemies
         {
             CurrentWave = wave;
             int k = wave - 1;
-            RemainingToSpawn = Mathf.RoundToInt(baseCount * Mathf.Pow(countGrowth, k));
-            spawnRate = Mathf.Min(maxSpawnRate, baseSpawnRate * Mathf.Pow(spawnRateGrowth, k));
+            RemainingToSpawn = Mathf.RoundToInt(baseCount * Mathf.Pow(countGrowth, k) * hordeScale);
+            spawnRate = Mathf.Min(maxSpawnRate * hordeScale, baseSpawnRate * Mathf.Pow(spawnRateGrowth, k) * hordeScale);
             healthMul = Mathf.Pow(healthGrowth, k);
             speedMul = Mathf.Pow(speedGrowth, k);
             rewardMul = Mathf.Pow(rewardGrowth, k);

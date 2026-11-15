@@ -75,6 +75,7 @@ namespace ZombieTD.CameraSystem
             {
                 LevelData d = level.Level;
                 pitch = d.cameraPitch;
+                bottomEdgeMargin = d.cameraBottomMargin; // per level, so each camera view can be framed on its own
                 minDistance = d.cameraMinDistance;
                 maxDistance = Mathf.Max(d.cameraMaxDistance, minDistance);
                 distance = targetDistance = Mathf.Clamp(d.cameraStartDistance, minDistance, maxDistance);

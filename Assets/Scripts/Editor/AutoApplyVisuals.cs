@@ -42,10 +42,37 @@ namespace ZombieTD.EditorTools
                 if (m != null) { floor.objectReferenceValue = m; changed = true; }
             }
 
+            // Placement pad materials (editable assets so the colours can be tuned in the Inspector).
+            SerializedProperty padFill = so.FindProperty("padFillMaterial");
+            SerializedProperty padEdge = so.FindProperty("padEdgeMaterial");
+            if (padFill.objectReferenceValue == null || padEdge.objectReferenceValue == null)
+            {
+                padFill.objectReferenceValue = PadMaterial("PadFill", new Color(0.07f, 0.4f, 0.46f));
+                padEdge.objectReferenceValue = PadMaterial("PadEdge", new Color(0.35f, 1.1f, 1.2f));
+                changed = true;
+            }
+
+            ZombieSetup.EnsureTiny(); // tiny horde zombies (one-time change to the prefab)
+
+            // Rifleman + drag-and-drop placement (only if the soldier pack is imported and the scene has none yet).
+            if (SoldierSetup.EnsureSystem(level)) changed = true;
+
             if (!changed) return;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorSceneManager.MarkSceneDirty(level.gameObject.scene);
             Debug.Log("[ZombieTD] Level visuals applied automatically (save the scene to keep them).");
+        }
+
+        // Flat unlit colour (ignores lighting so pads stay readable at night); created once, then yours to edit.
+        static Material PadMaterial(string name, Color color)
+        {
+            string path = $"Assets/Materials/{name}.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m != null) return m;
+            m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            m.SetColor("_BaseColor", color);
+            AssetDatabase.CreateAsset(m, path);
+            return m;
         }
     }
 }

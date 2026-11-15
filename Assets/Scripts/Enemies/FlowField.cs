@@ -89,14 +89,21 @@ namespace ZombieTD.Enemies
             {
                 if (distance[c] == Unreachable || distance[c] == 0) continue;
                 int cx = c % w, cz = c / w;
-                int best = -1, bestD = distance[c];
+                int best = -1, bestD = distance[c], ties = 0;
                 for (int d = 0; d < 8; d++)
                 {
                     int nx = cx + DX[d], nz = cz + DZ[d];
                     if (!grid.IsWalkable(nx, nz)) continue;
                     if (d >= 4 && (!grid.IsWalkable(nx, cz) || !grid.IsWalkable(cx, nz))) continue;
                     int ni = nz * w + nx;
-                    if (distance[ni] < bestD) { bestD = distance[ni]; best = ni; }
+                    if (distance[ni] < bestD) { bestD = distance[ni]; best = ni; ties = 1; }
+                    else if (best >= 0 && distance[ni] == bestD)
+                    {
+                        // Equally good neighbours: pick one at random (stable per tile) instead of always the same
+                        // direction, so crowds don't all drift to one side. Reservoir sampling keeps it uniform.
+                        ties++;
+                        if (TieHash(c, ties) % ties == 0) best = ni;
+                    }
                 }
                 next[c] = best;
             }
@@ -106,6 +113,16 @@ namespace ZombieTD.Enemies
 
         /// <summary>For goal cells on the map edge: unit direction toward the edge (the gate). Zero otherwise.</summary>
         public Vector3 GoalPushAt(int index) => goalPush[index];
+
+        static int TieHash(int a, int b)
+        {
+            unchecked
+            {
+                uint h = (uint)(a * 73856093) ^ (uint)(b * 19349663);
+                h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
+                return (int)(h & 0x7fffffff);
+            }
+        }
 
         /// <summary>Steps to the goal from this cell, or Unreachable.</summary>
         public int DistanceAt(int index) => distance[index];

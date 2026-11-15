@@ -15,7 +15,9 @@ MonoBehaviour:
   displayName: The Gate
   layout: 0
   cellSize: 4
-  wallHeight: 14
+  wallHeight: 22
+  parapetHeight: 0.45
+  parapetThickness: 0.35
   corridorLength: 44
   corridorWidth: 5
   wallThickness: 3
@@ -35,7 +37,8 @@ MonoBehaviour:
   hasGate: 1
   gateHealth: 600
   gateHeightFraction: 0.85
-  cameraPitch: 62
-  cameraStartDistance: 120
+  cameraPitch: 72
+  cameraStartDistance: 95
+  cameraBottomMargin: 0.12
   cameraMinDistance: 40
   cameraMaxDistance: 200

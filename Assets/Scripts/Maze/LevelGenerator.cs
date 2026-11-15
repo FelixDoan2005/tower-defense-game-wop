@@ -27,7 +27,9 @@ namespace ZombieTD.Maze
         [SerializeField, Tooltip("Used only if Wall Variants is empty.")] Material wallMaterial;
         [SerializeField, Tooltip("Roofs and parapets.")] Material wallTopMaterial;
         [SerializeField] Material groundMaterial;
-        [SerializeField, Tooltip("Kit floor sheet material for the patterned road (see Tools > Build Kit Road Floor).")] Material floorMaterial;        [SerializeField] Material spawnMaterial;
+        [SerializeField, Tooltip("Kit floor sheet material for the patterned road (see Tools > Build Kit Road Floor).")] Material floorMaterial;        [SerializeField, Tooltip("Placement pad fill (flat colour, ignores lighting so pads read at night).")] Material padFillMaterial;
+        [SerializeField, Tooltip("Placement pad border.")] Material padEdgeMaterial;
+        [SerializeField] Material spawnMaterial;
         [SerializeField] Material goalMaterial;
         [SerializeField] Material gateMaterial;
 
@@ -126,6 +128,8 @@ namespace ZombieTD.Maze
             if (fortress != null) fortress.hideFlags = HideFlags.DontSave;
             Mesh floor = MeshOf(root, "RoadFloor");
             if (floor != null) floor.hideFlags = HideFlags.DontSave;
+            Mesh pads = MeshOf(root, "PlacementPads");
+            if (pads != null) pads.hideFlags = HideFlags.DontSave;
         }
 #endif
 
@@ -181,6 +185,7 @@ namespace ZombieTD.Maze
             {
                 DestroySafe(MeshOf(old, "Fortress")); // generated meshes aren't freed with their GameObjects
                 DestroySafe(MeshOf(old, "RoadFloor"));
+                DestroySafe(MeshOf(old, "PlacementPads"));
                 DestroySafe(old.gameObject);
             }
 
@@ -196,6 +201,7 @@ namespace ZombieTD.Maze
 
             var mb = new MeshBuilder(styles.Count);
             MazeMeshBuilder.AddWalls(grid, level.wallHeight, mb, level.parapetHeight, level.parapetThickness);
+            List<PlacementPads.PadInfo> pads = PlacementPads.Plan(grid, level);
             Mesh mesh = mb.ToMesh("Fortress");
 
             styles.Add(OrFallback(wallTopMaterial, new Color(0.1f, 0.1f, 0.11f)));
@@ -236,7 +242,7 @@ namespace ZombieTD.Maze
                     Box(root, "Goal", Local(c) + Vector3.up * 0.03f, new Vector3(cs * 0.9f, 0.06f, cs * 0.9f), goalMat, false);
             }
 
-            BuildSlots(root);
+            BuildSlots(root, pads);
             if (level.addLights) LevelLighting.Build(root, grid, level);
 
             // Last: hand-placed police cars block the road tiles under them (after floor/slots/lights are placed).
@@ -295,33 +301,42 @@ namespace ZombieTD.Maze
         static Vector3 Axis(bool alongZ, float across, float y, float along) =>
             alongZ ? new Vector3(across, y, along) : new Vector3(along, y, across);
 
-        void BuildSlots(Transform root)
+        // Placement pads: spaced-out roof tiles, each with a WallSlot (the logical spot) and a glowing plate (the visual).
+        void BuildSlots(Transform root, List<PlacementPads.PadInfo> pads)
         {
             slots = new WallSlot[grid.CellCount];
             var slotRoot = new GameObject("WallSlots").transform;
             slotRoot.SetParent(root, false);
-            int reach = Mathf.Max(1, level.slotReach);
 
-            for (int z = 0; z < grid.Height; z++)
-            for (int x = 0; x < grid.Width; x++)
+            foreach (PlacementPads.PadInfo p in pads)
             {
-                if (grid.IsWalkable(x, z) || !NearRoad(x, z, reach)) continue;
-                int index = grid.Index(x, z);
+                int index = grid.Index(p.cell.x, p.cell.y);
                 var go = new GameObject("Slot");
                 go.transform.SetParent(slotRoot, false);
-                go.transform.position = grid.CellToWorld(x, z) + Vector3.up * level.wallHeight;
+                go.transform.position = grid.Origin + PlacementPads.MountLocal(grid, level, p) + Vector3.up * (level.wallHeight + PlacementPads.Lift);
                 WallSlot slot = go.AddComponent<WallSlot>();
-                slot.Init(x, z, index);
+                slot.Init(p.cell.x, p.cell.y, index, p.toRoad, PlacementPads.FrontOffset(grid, level));
                 slots[index] = slot;
             }
+
+            if (!level.showPads || pads.Count == 0) return;
+            var visual = new GameObject("PlacementPads");
+            visual.transform.SetParent(root, false);
+            visual.AddComponent<MeshFilter>().sharedMesh = PlacementPads.BuildMesh(grid, pads, level);
+            MeshRenderer mr = visual.AddComponent<MeshRenderer>();
+            mr.sharedMaterials = new[]
+            {
+                UnlitFallback(padFillMaterial, new Color(0.07f, 0.4f, 0.46f)),   // subtle teal fill
+                UnlitFallback(padEdgeMaterial, new Color(0.35f, 1.1f, 1.2f)),    // brighter border (slight bloom)
+            };
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
         }
 
-        bool NearRoad(int x, int z, int reach)
+        static Material UnlitFallback(Material m, Color color)
         {
-            for (int dz = -reach; dz <= reach; dz++)
-            for (int dx = -reach; dx <= reach; dx++)
-                if (grid.IsWalkable(x + dx, z + dz)) return true;
-            return false;
+            if (m != null) return m;
+            return new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = color };
         }
 
         // Grid-local center of a cell at ground level.

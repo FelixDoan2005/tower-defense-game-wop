@@ -23391,6 +23391,76 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &1111023481
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1111023484}
+  - component: {fileID: 1111023483}
+  - component: {fileID: 1111023482}
+  m_Layer: 0
+  m_Name: UnitSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1111023482
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1111023481}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e20582f1ee32a499d98ef2ccb3747c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ZombieTD.UI.UnitTray
+  placer: {fileID: 1111023483}
+  topOffset: 95
+  cardSize: {x: 150, y: 135}
+  spacing: 14
+  panelColor: {r: 0.04, g: 0.05, b: 0.07, a: 0.8}
+  cardColor: {r: 0.1, g: 0.16, b: 0.2, a: 0.95}
+  costColor: {r: 1, g: 0.85, b: 0.3, a: 1}
+--- !u!114 &1111023483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1111023481}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76d7ab0099ab9d24e8b0160671fde890, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ZombieTD.Towers.UnitPlacer
+  cam: {fileID: 1906253439}
+  level: {fileID: 1884754383}
+  buildable:
+  - {fileID: 11400000, guid: d9537f808730c8e48b6d3de6953b024b, type: 2}
+  validColor: {r: 0.25, g: 1.6, b: 0.5, a: 1}
+  invalidColor: {r: 1.7, g: 0.25, b: 0.2, a: 1}
+--- !u!4 &1111023484
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1111023481}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1121039084 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400002, guid: 243ee49f20f63434c95b7cbe33beac48, type: 3}
@@ -38267,6 +38337,8 @@ MonoBehaviour:
   wallTopMaterial: {fileID: 2100000, guid: cefe407df4719ec44a9d233430b71759, type: 2}
   groundMaterial: {fileID: 2100000, guid: 3eea3fb1b45a43d4a92e71e989705fa9, type: 2}
   floorMaterial: {fileID: 2100000, guid: ce8ed9ef99337ba4fa8aa260722174ae, type: 2}
+  padFillMaterial: {fileID: 2100000, guid: 3d7ce0ede00e6f24f91862064f7c90ac, type: 2}
+  padEdgeMaterial: {fileID: 2100000, guid: be594db0addb0124fb9b207447309631, type: 2}
   spawnMaterial: {fileID: 2100000, guid: 7570462c39e27c643897471cade730f6, type: 2}
   goalMaterial: {fileID: 2100000, guid: efb0aa12b2d6422409a50ae0b25c19f1, type: 2}
   gateMaterial: {fileID: 2100000, guid: f06a6dc034e8f464fa60d923a4fa74f6, type: 2}
@@ -42803,3 +42875,4 @@ SceneRoots:
   - {fileID: 799631566}
   - {fileID: 283232534}
   - {fileID: 559744521}
+  - {fileID: 1111023484}

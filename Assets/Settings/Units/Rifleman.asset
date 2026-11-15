@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3823035ffd5bab42a9b417f52413ec2, type: 3}
+  m_Name: Rifleman
+  m_EditorClassIdentifier: Assembly-CSharp::ZombieTD.Towers.WeaponData
+  displayName: Rifleman
+  cost: 35
+  unitPrefab: {fileID: 8758411864972081986, guid: 0462b59d70afcd14eae80d9f19b678ca, type: 3}
+  icon: {fileID: 0}
+  slotCapacity: 10
+  formationSpacing: 0.6
+  setupVersion: 4
+  range: 24
+  fireRate: 3.5
+  defaultTargetMode: 1
+  turnSpeed: 540
+  aimTolerance: 8
+  damage: 4
+  knockback: 0.15
+  muzzleVfx: {fileID: 6038256165402614814, guid: 00456b648dd2515488e49f11496f950b, type: 3}
+  hitVfx: {fileID: 7247980624931371095, guid: 7be4e7f27c7cf6d4cad80452a1a558b1, type: 3}
+  tracerPrefab: {fileID: 7227837742455419885, guid: 19e5929d47932c04985240f730782826, type: 3}
+  shakeOnFire: 0.0015
+  fireSound: {fileID: 0}
+  fireVolume: 0.6

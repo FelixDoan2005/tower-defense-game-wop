@@ -25,7 +25,7 @@ namespace ZombieTD.Maze
         [Header("Scale")]
         [Min(1f)] public float cellSize = 4f;
         [Min(1f), Tooltip("At a 62° camera the near wall hides ~0.53x its height of road, so tall walls need a wide road.")]
-        public float wallHeight = 14f;
+        public float wallHeight = 22f;
 
         [Header("Corridor layout (tiles)")]
         [Min(4)] public int corridorLength = 44;
@@ -47,8 +47,13 @@ namespace ZombieTD.Maze
             "G........S\n" +
             "##########";
 
+        [Header("Placement pads (where soldiers and turrets go)")]
+        [Tooltip("Draw the glowing pads. The placement slots exist either way.")] public bool showPads = true;
+        [Range(1, 3), Tooltip("Rows of roof from the road edge that can hold pads (1 = just the edge row).")] public int padRows = 1;
+        [Min(2), Tooltip("One pad every N tiles along the facade; the tiles between stay empty.")] public int padSpacing = 3;
+        [Min(0.5f), Tooltip("Pad width in world units (a road tile is 4).")] public float padSize = 2.6f;
+
         [Header("Building")]
-        [Min(1), Tooltip("Wall tiles this close to a road get a build slot (1 = edge row only).")] public int slotReach = 2;
         [Tooltip("Extra ground around the map, in world units.")] public float groundMargin = 8f;
 
         [Header("Road floor")]
@@ -65,9 +70,9 @@ namespace ZombieTD.Maze
         public bool barricadeStrobes = true;
 
         [Header("Rooftops")]
-        [Min(0f), Tooltip("Low wall along roof edges that overlook the road (cover for soldiers). 0 = none.")]
-        public float parapetHeight = 0.9f;
-        [Min(0.1f)] public float parapetThickness = 0.6f;
+        [Min(0f), Tooltip("Low wall along roof edges that overlook the road. Soldier-waist height so they can lean over it. 0 = none.")]
+        public float parapetHeight = 0.45f;
+        [Min(0.1f)] public float parapetThickness = 0.35f;
 
         [Header("Lights")]
         [Tooltip("Master switch for the generated light rig.")] public bool addLights = true;
@@ -91,10 +96,12 @@ namespace ZombieTD.Maze
         [Range(0.3f, 1f), Tooltip("Door height as a fraction of wall height.")] public float gateHeightFraction = 0.85f;
 
         [Header("Camera")]
-        [Range(30f, 90f)] public float cameraPitch = 62f;
-        public float cameraStartDistance = 120f;
+        [Range(30f, 90f)] public float cameraPitch = 72f;
+        public float cameraStartDistance = 95f;
         public float cameraMinDistance = 40f;
         public float cameraMaxDistance = 200f;
+        [Range(0f, 0.4f), Tooltip("Locked-camera views only: gap between the bottom of the screen and the bottom building, as a fraction of screen height. Raise it to slide the view down and show more of that building.")]
+        public float cameraBottomMargin = 0.12f;
 
 #if UNITY_EDITOR
         /// <summary>Editor only: lets LevelGenerator refresh its preview when this asset is edited.</summary>
