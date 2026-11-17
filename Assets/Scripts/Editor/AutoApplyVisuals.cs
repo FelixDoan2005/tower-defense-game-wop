@@ -53,6 +53,10 @@ namespace ZombieTD.EditorTools
             }
 
             ZombieSetup.EnsureTiny(); // tiny horde zombies (one-time change to the prefab)
+            if (ZombieHierarchy.EnsureOnce()) changed = true; // "Zombies" folder in the Hierarchy (first load only)
+            if (PadTool.EnsureOnce(level)) changed = true; // placement pads as individual scene objects (first load only)
+
+            PadTool.EnsureFrontPadsOnce(level); // wall pads in front of the police cars (scenes built before the Shotgun Wall)
 
             // Rifleman + drag-and-drop placement (only if the soldier pack is imported and the scene has none yet).
             if (SoldierSetup.EnsureSystem(level)) changed = true;

@@ -84,6 +84,9 @@ namespace ZombieTD.Maze
         [Min(0)] public int maxBeacons = 16;
         [Min(0), Tooltip("Military floodlight over the rooftops every N road-facing tiles (0 = none).")] public int roofLightSpacing = 6;
         [Min(0)] public int maxRoofLights = 20;
+        [Min(0), Tooltip("Red light on the road floor every N tiles, so the whole track is lit (0 = none).")] public int floorLightSpacing = 3;
+        [Min(0)] public int maxFloorLights = 60;
+        [Range(0f, 1f), Tooltip("Strength of the moonlight's shadows. The tall walls cast a big shadow over the road; lower this to see into it.")] public float shadowStrength = 0.3f;
         public bool roofFixtures = true;
         public bool strobes = true;
         public bool gateFloodlights = true;

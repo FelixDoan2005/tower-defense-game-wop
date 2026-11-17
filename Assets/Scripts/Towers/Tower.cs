@@ -34,6 +34,12 @@ namespace ZombieTD.Towers
         protected Zombie target;
         PooledObject pooled;
         float cooldown, retargetTimer;
+        int ammo;            // shots left in the magazine (int.MaxValue when the weapon never reloads)
+        float reloadLeft;    // seconds of reloading remaining
+        float hitPoints;     // what zombies chew through (road units only)
+
+        /// <summary>Remaining hit points / max, for a health display.</summary>
+        public float HealthFraction => weapon != null && weapon.health > 0f ? hitPoints / weapon.health : 1f;
 
         // Road geometry around this unit's pad, found when it is placed.
         MazeGrid grid;
@@ -51,6 +57,8 @@ namespace ZombieTD.Towers
         public WeaponData Weapon => weapon;
         public WallSlot Slot { get; private set; }
         public TargetMode TargetMode { get => targetMode; set => targetMode = value; }
+        /// <summary>True while the magazine is being swapped: the unit tracks targets but doesn't fire.</summary>
+        public bool IsReloading => reloadLeft > 0f;
 
         protected virtual void Awake()
         {
@@ -72,12 +80,28 @@ namespace ZombieTD.Towers
             Slot = slot;
             int index = slot.Add(this, weapon);
             transform.position = slot.FormationPoint(weapon, index);
-            targetMode = weapon.defaultTargetMode;
+            if (weapon.slotCapacity <= 1 || weapon.padKind == PadKind.Wall) transform.rotation = Quaternion.LookRotation(slot.Forward); // a big unit faces the way its pad does
+            // Roof soldiers pick random targets so the fire is spread over the whole horde; units on the road keep their own mode.
+            targetMode = slot.IsGround ? weapon.defaultTargetMode : TargetMode.Random;
+            hitPoints = weapon.health;
             target = null;
             cooldown = 0f;
             retargetTimer = Random.value * retargetInterval; // stagger searches across units
+
+            // Start with a partly full magazine so a squad placed together doesn't all reload at the same moment.
+            reloadLeft = 0f;
+            ammo = weapon.magazineSize > 0 ? Mathf.Max(1, Mathf.RoundToInt(weapon.magazineSize * Random.Range(0.5f, 1f))) : int.MaxValue;
+
             FindRoadInfo();
             enabled = true;
+        }
+
+        // Magazine empty: stop firing for the reload time (a little different for each soldier, so squads don't sync up).
+        void StartReload()
+        {
+            reloadLeft = Mathf.Max(0.1f, weapon.reloadTime) * Random.Range(0.85f, 1.15f);
+            cooldown = 0f;
+            if (Slot != null) Slot.RefreshLabel();
         }
 
         // Which way the road lies from this pad, and where the middle of the road is.
@@ -87,8 +111,11 @@ namespace ZombieTD.Towers
             ZombieManager zm = ZombieManager.Instance;
             grid = zm != null ? zm.Grid : null;
             if (grid == null || Slot == null) return;
+            if (Slot.IsGround) return; // on the road itself: no roof edge, no far/near side, nothing in the way of shots
 
-            Vector2Int c = Slot.Cell;
+            // The wall tile this pad sits on (pads are free-standing objects now, so it comes from their position).
+            if (!grid.WorldToCell(Slot.MountPoint, out int padX, out int padZ)) return;
+            Vector2Int c = new Vector2Int(padX, padZ);
             Vector2Int[] dirs = { new Vector2Int(1, 0), new Vector2Int(-1, 0), new Vector2Int(0, 1), new Vector2Int(0, -1) };
             for (int k = 1; k <= 3; k++)
                 foreach (Vector2Int d in dirs)
@@ -121,18 +148,39 @@ namespace ZombieTD.Towers
         // surface while still over a wall tile (it would cut through the facade or the roof edge).
         bool ClearShot(Vector3 origin, Vector3 targetPoint)
         {
-            if (grid == null || Slot == null) return true;
+            if (grid == null || Slot == null || Slot.IsGround) return true;
+            if (weapon.shootOverOwnBuilding) return true; // long shots arc over the rooftops: from a roof, any flat line down the street would clip the buildings beside it
             float roofY = Slot.MountPoint.y;
             Vector3 delta = targetPoint - origin;
             float horizontal = Mathf.Sqrt(delta.x * delta.x + delta.z * delta.z);
-            int steps = Mathf.Min(80, Mathf.CeilToInt(horizontal / SampleStep));
+            int steps = Mathf.Min(400, Mathf.CeilToInt(horizontal / SampleStep));
+            bool overOwnBuilding = weapon.shootOverOwnBuilding; // long shots skip the wall run the unit stands on, until the line reaches open road
             for (int i = 1; i < steps; i++)
             {
                 Vector3 p = origin + delta * (i / (float)steps);
+                bool inCell = grid.WorldToCell(p, out int x, out int z);
+                bool wall = inCell && grid.IsBuilding(x, z);                 // police cars don't count: bullets fly over them
+                if (inCell && !wall) overOwnBuilding = false;               // over the road now: any building after this really is in the way
                 if (p.y >= roofY) continue;                                  // still above the roof: clear
-                if (grid.WorldToCell(p, out int x, out int z) && !grid.IsWalkable(x, z)) return false; // inside a building
+                if (wall && !overOwnBuilding) return false; // inside a building
             }
             return true;
+        }
+
+        /// <summary>
+        /// Zombies hurt this unit. Returns the damage left over if it broke (so a pad can pass it to the next unit).
+        /// A broken unit is removed from its pad with a puff of its hit effect.
+        /// </summary>
+        public float Hurt(float amount)
+        {
+            if (weapon == null || Slot == null) return 0f;
+            if (amount < hitPoints) { hitPoints -= amount; return 0f; }
+
+            float leftover = amount - hitPoints;
+            hitPoints = 0f;
+            PooledVfx.Spawn(weapon.hitVfx, transform.position + Vector3.up * 0.5f, Quaternion.identity);
+            Remove();
+            return leftover;
         }
 
         /// <summary>Frees the pad (if any) and returns the unit to the pool.</summary>
@@ -141,6 +189,7 @@ namespace ZombieTD.Towers
             if (Slot != null) Slot.Remove(this);
             Slot = null;
             target = null;
+            reloadLeft = 0f;
             enabled = false;
             if (pooled != null) pooled.Release();
             else Destroy(gameObject);
@@ -154,8 +203,19 @@ namespace ZombieTD.Towers
             cooldown -= dt;
             retargetTimer -= dt;
 
+            if (reloadLeft > 0f)
+            {
+                reloadLeft -= dt;
+                if (reloadLeft <= 0f)
+                {
+                    reloadLeft = 0f;
+                    ammo = weapon.magazineSize;
+                    if (Slot != null) Slot.RefreshLabel();
+                }
+            }
+
             if (target != null && (!target.IsAlive || !InRange(target.Position))) target = null;
-            if (target == null || retargetTimer <= 0f)
+            if (target == null || (retargetTimer <= 0f && targetMode != TargetMode.Random)) // a random pick is kept until it dies or leaves range
             {
                 retargetTimer = retargetInterval;
                 target = FindTarget();
@@ -173,6 +233,9 @@ namespace ZombieTD.Towers
             }
             if (!AimAt(aim, dt)) { if (cooldown < 0f) cooldown = 0f; return; }
 
+            // Still tracking the target while reloading, just not firing.
+            if (reloadLeft > 0f) { if (cooldown < 0f) cooldown = 0f; return; }
+
             float interval = 1f / Mathf.Max(0.01f, weapon.fireRate);
             int shots = 0;
             while (cooldown <= 0f && shots < 4 && target != null)
@@ -180,7 +243,9 @@ namespace ZombieTD.Towers
                 Fire(target, aim);
                 cooldown += interval;
                 shots++;
-                if (!target.IsAlive) target = null;
+                if (target != null && !target.IsAlive) target = null;
+
+                if (weapon.magazineSize > 0 && --ammo <= 0) { StartReload(); break; } // empty: reload
             }
         }
 
@@ -243,6 +308,7 @@ namespace ZombieTD.Towers
                     {
                         case TargetMode.First: score = zb.PathDistance + d2 * invR2; break; // distance breaks ties
                         case TargetMode.Strongest: score = -zb.Health; break;
+                        case TargetMode.Random: score = Random.value; break;
                         default: score = d2; break;
                     }
 
@@ -254,6 +320,7 @@ namespace ZombieTD.Towers
                     if (score < bestScore && ClearShot(ShotOrigin(zb.AimPoint), zb.AimPoint)) { bestScore = score; best = zb; }
                 }
             }
+
             return best;
         }
     }

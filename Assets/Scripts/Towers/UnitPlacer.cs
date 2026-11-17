@@ -1,13 +1,17 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using ZombieTD.Core;
+using ZombieTD.Enemies;
 using ZombieTD.Maze;
 
 namespace ZombieTD.Towers
 {
     /// <summary>
-    /// Drag-and-drop placement. A unit card in the tray calls BeginDrag/Drag/EndDrag. While dragging, the real unit
-    /// follows the cursor and snaps to the pad under it; the pad lights up green (can place) or red (taken/too expensive).
-    /// Dropping on a free pad spends the money and places the unit; dropping anywhere else cancels.
+    /// Click-to-build placement. Click a pad to select it (it lights up), then click a unit card in the tray: each
+    /// click adds one of that unit to the pad (click a cop twice for two cops). Clear empties the selected pad and
+    /// refunds everything on it, before a wave starts. Click empty ground or right-click to deselect.
     /// </summary>
     public class UnitPlacer : MonoBehaviour
     {
@@ -15,21 +19,21 @@ namespace ZombieTD.Towers
 
         [SerializeField] Camera cam;
         [SerializeField] LevelGenerator level;
-        [SerializeField] WeaponData[] buildable;
-        [SerializeField] Color validColor = new Color(0.25f, 1.6f, 0.5f);
-        [SerializeField] Color invalidColor = new Color(1.7f, 0.25f, 0.2f);
+        [SerializeField, Tooltip("The 'Units' folder in the Hierarchy. When set, the tray shows its enabled units in Hierarchy order.")]
+        UnitRoster roster;
+        [SerializeField, Tooltip("Used only when there is no Units folder.")] WeaponData[] buildable;
+        [SerializeField, Tooltip("Colour of the selected pad's highlight.")] Color selectedColor = new Color(0.4f, 1.8f, 2.2f);
 
-        Tower carried;
-        WeaponData carriedData;
-        WallSlot hover;
+        WaveSpawner spawner;
         Renderer marker;
         MaterialPropertyBlock block;
-        Color shownColor;
+        readonly List<Tower> scratch = new List<Tower>(32);
 
-        public WeaponData[] Buildable => buildable;
-        /// <summary>The tray's screen area; dropping a unit back on it cancels the placement.</summary>
+        public WeaponData[] Buildable => roster != null ? roster.Collect() : buildable;
+        /// <summary>The tray's screen area (clicks over it never change the selection).</summary>
         public RectTransform TrayRect { get; set; }
-        public bool IsCarrying => carried != null;
+        /// <summary>The pad clicked last (null when nothing is selected).</summary>
+        public WallSlot Selected { get; private set; }
 
         void Awake()
         {
@@ -38,115 +42,103 @@ namespace ZombieTD.Towers
             CreateMarker();
         }
 
+        void Start()
+        {
+            spawner = FindAnyObjectByType<WaveSpawner>(); // one-time lookup
+        }
+
         void CreateMarker()
         {
             GameObject q = GameObject.CreatePrimitive(PrimitiveType.Quad);
             q.name = "PadHighlight";
             Destroy(q.GetComponent<Collider>());
             q.transform.SetParent(transform, false);
-            q.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // lie flat, facing up
             marker = q.GetComponent<Renderer>();
             marker.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
             marker.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             marker.receiveShadows = false;
+            block.SetColor(BaseColorId, selectedColor);
+            marker.SetPropertyBlock(block);
             q.SetActive(false);
         }
 
-        // ---------------------------------------------------------------- drag API
-
-        public bool CanStartDrag(WeaponData data)
+        void Update()
         {
             GameManager gm = GameManager.Instance;
-            return gm != null && gm.State == GameState.Playing && data != null && data.unitPrefab != null && gm.CanAfford(data.cost);
-        }
+            if (gm == null || gm.State != GameState.Playing) { Select(null); return; }
 
-        public void BeginDrag(WeaponData data)
-        {
-            if (carried != null) Cancel();
-            if (!CanStartDrag(data)) return;
-
-            carriedData = data;
-            carried = PoolManager.Instance.Spawn(data.unitPrefab, Vector3.zero, Quaternion.identity);
-            carried.BeginCarry(data);
-            hover = null;
-        }
-
-        public void Drag(Vector2 screenPos)
-        {
-            if (carried == null) return;
-
-            Ray ray = cam.ScreenPointToRay(screenPos);
-            level.TryGetSlotFromRay(ray, out hover);
-
-            if (hover != null)
+            Mouse mouse = Mouse.current;
+            if (mouse == null) return;
+            if (mouse.rightButton.wasPressedThisFrame) Select(null);
+            if (mouse.leftButton.wasPressedThisFrame)
             {
-                bool valid = IsValid(hover);
-                // Shows where this soldier would stand in the squad.
-                carried.transform.position = valid ? hover.FormationPoint(carriedData, hover.Count) : hover.MountPoint;
-                ShowMarker(hover, valid ? validColor : invalidColor);
-            }
-            else
-            {
-                // Not over a pad: follow the cursor across the roof height, marker hidden.
-                if (RayToRoofPlane(ray, out Vector3 p)) carried.transform.position = p;
-                marker.gameObject.SetActive(false);
-            }
-        }
-
-        /// <summary>Ends the drag. Returns true if the unit was placed.</summary>
-        public bool EndDrag(Vector2 screenPos)
-        {
-            if (carried == null) return false;
-            marker.gameObject.SetActive(false);
-
-            bool overTray = TrayRect != null && RectTransformUtility.RectangleContainsScreenPoint(TrayRect, screenPos, null);
-            if (!overTray && hover != null && IsValid(hover) && GameManager.Instance.TrySpend(carriedData.cost))
-            {
-                carried.Place(hover);
-                carried = null;
-                hover = null;
-                return true;
+                // Clicks on the tray / buttons belong to the UI, not to the map.
+                bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+                if (!overUi)
+                {
+                    Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+                    level.TryGetSlotFromRay(ray, out WallSlot slot);
+                    Select(slot);
+                }
             }
 
-            Cancel();
-            return false;
+            if (Selected != null) ShowMarker(Selected);
         }
 
-        void Cancel()
+        void Select(WallSlot slot)
         {
-            if (carried != null) carried.Remove();
-            carried = null;
-            hover = null;
-            if (marker != null) marker.gameObject.SetActive(false);
+            Selected = slot;
+            if (slot == null && marker != null) marker.gameObject.SetActive(false);
         }
 
-        // ---------------------------------------------------------------- helpers
+        // ---------------------------------------------------------------- build / clear
 
-        // Empty pad, or a squad of the same unit with room left; and enough money.
-        bool IsValid(WallSlot slot) => slot.CanAdd(carriedData) && GameManager.Instance != null && GameManager.Instance.CanAfford(carriedData.cost);
-
-        bool RayToRoofPlane(Ray ray, out Vector3 point)
+        /// <summary>True if one more of this unit fits on the selected pad and can be paid for.</summary>
+        public bool CanAddToSelected(WeaponData data)
         {
-            point = default;
-            if (ray.direction.y > -0.0001f) return false;
-            float t = (level.transform.position.y + level.WallHeight - ray.origin.y) / ray.direction.y;
-            if (t < 0f) return false;
-            point = ray.origin + ray.direction * t;
+            GameManager gm = GameManager.Instance;
+            return Selected != null && gm != null && gm.State == GameState.Playing && data != null && data.unitPrefab != null
+                   && Selected.CanAdd(data) && gm.CanAfford(data.cost);
+        }
+
+        /// <summary>Adds one unit to the selected pad (spends its cost). Returns true if it was added.</summary>
+        public bool TryAddToSelected(WeaponData data)
+        {
+            if (!CanAddToSelected(data) || !GameManager.Instance.TrySpend(data.cost)) return false;
+            Tower unit = PoolManager.Instance.Spawn(data.unitPrefab, Selected.MountPoint, Quaternion.identity);
+            unit.BeginCarry(data);
+            unit.Place(Selected);
             return true;
         }
 
-        void ShowMarker(WallSlot slot, Color color)
+        /// <summary>Can the selected pad be emptied right now? Only before a wave starts, and only if something is on it.</summary>
+        public bool CanClearSelected => Selected != null && Selected.Count > 0 && (spawner == null || !spawner.IsWaveActive);
+
+        /// <summary>Removes everything on the selected pad and gives the money back.</summary>
+        public void ClearSelected()
+        {
+            if (!CanClearSelected) return;
+            scratch.Clear();
+            scratch.AddRange(Selected.Units);
+            foreach (Tower t in scratch)
+            {
+                if (t == null) continue;
+                if (t.Weapon != null) GameManager.Instance.Refund(t.Weapon.cost);
+                t.Remove();
+            }
+            scratch.Clear();
+        }
+
+        // ---------------------------------------------------------------- highlight
+
+        void ShowMarker(WallSlot slot)
         {
             Transform t = marker.transform;
-            t.position = slot.MountPoint + Vector3.up * 0.05f;
-            float s = level.Level.padSize + 0.5f;
-            t.localScale = new Vector3(s, s, 1f);
+            Vector3 f = slot.Forward;
+            t.position = slot.MountPoint + Vector3.up * 0.06f;
+            t.rotation = Quaternion.Euler(0f, Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg, 0f) * Quaternion.Euler(90f, 0f, 0f); // flat, facing up, aligned to the pad
+            t.localScale = new Vector3(slot.PlateSize + 0.5f, slot.PlateDepth + 0.5f, 1f);
             marker.gameObject.SetActive(true);
-
-            if (color == shownColor) return;
-            shownColor = color;
-            block.SetColor(BaseColorId, color);
-            marker.SetPropertyBlock(block);
         }
     }
 }

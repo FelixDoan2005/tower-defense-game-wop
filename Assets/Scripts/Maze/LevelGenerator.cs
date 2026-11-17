@@ -37,7 +37,9 @@ namespace ZombieTD.Maze
 
         MazeGrid grid;
         LevelData level;
-        WallSlot[] slots;
+        readonly List<WallSlot> slotList = new List<WallSlot>(64);
+        Transform slotRoot;
+        bool usingAuthoredPads;
 
         /// <summary>The level data grid. Generates on first access if needed.</summary>
         public MazeGrid Grid
@@ -130,6 +132,8 @@ namespace ZombieTD.Maze
             if (floor != null) floor.hideFlags = HideFlags.DontSave;
             Mesh pads = MeshOf(root, "PlacementPads");
             if (pads != null) pads.hideFlags = HideFlags.DontSave;
+            Mesh carPads = MeshOf(root, "BarricadePads");
+            if (carPads != null) carPads.hideFlags = HideFlags.DontSave;
         }
 #endif
 
@@ -159,23 +163,26 @@ namespace ZombieTD.Maze
             return ScriptableObject.CreateInstance<LevelData>();
         }
 
-        /// <summary>Slot on the wall tile under a world position, if there is one.</summary>
-        public bool TryGetSlot(Vector3 worldPos, out WallSlot slot)
-        {
-            int i = Grid.WorldToIndex(worldPos);
-            slot = i >= 0 ? slots[i] : null;
-            return slot != null;
-        }
-
-        /// <summary>Intersects the ray with the wall-top plane and returns the slot it lands on.</summary>
+        /// <summary>
+        /// The pad under the cursor. Every pad is tested at its own height (roof pads high up, pads in front of the
+        /// police cars on the ground), and the one the camera ray reaches first wins.
+        /// </summary>
         public bool TryGetSlotFromRay(Ray ray, out WallSlot slot)
         {
             slot = null;
-            if (ray.direction.y > -0.0001f) return false;
-            float topY = transform.position.y + WallHeight;
-            float t = (topY - ray.origin.y) / ray.direction.y;
-            if (t < 0f) return false;
-            return TryGetSlot(ray.origin + ray.direction * t, out slot);
+            if (grid == null) Generate();
+            if (slotList == null || ray.direction.y > -0.0001f) return false;
+
+            float bestT = float.MaxValue;
+            foreach (WallSlot s in slotList)
+            {
+                Vector3 c = s.MountPoint;
+                float t = (c.y - ray.origin.y) / ray.direction.y;
+                if (t < 0f || t >= bestT) continue;
+                Vector3 p = ray.origin + ray.direction * t;
+                if (Mathf.Abs(p.x - c.x) <= s.HitHalf && Mathf.Abs(p.z - c.z) <= s.HitHalf) { bestT = t; slot = s; }
+            }
+            return slot != null;
         }
 
         void BuildVisuals()
@@ -186,6 +193,7 @@ namespace ZombieTD.Maze
                 DestroySafe(MeshOf(old, "Fortress")); // generated meshes aren't freed with their GameObjects
                 DestroySafe(MeshOf(old, "RoadFloor"));
                 DestroySafe(MeshOf(old, "PlacementPads"));
+                DestroySafe(MeshOf(old, "BarricadePads"));
                 DestroySafe(old.gameObject);
             }
 
@@ -249,7 +257,11 @@ namespace ZombieTD.Maze
             if (level.policeBarricade)
             {
                 var barricade = FindAnyObjectByType<PoliceBarricade>();
-                if (barricade != null) barricade.BlockTiles(grid);
+                if (barricade != null)
+                {
+                    barricade.BlockTiles(grid);
+                    BuildBarricadeSlots(root, barricade); // a squad pad in front of each car
+                }
             }
         }
 
@@ -304,25 +316,63 @@ namespace ZombieTD.Maze
         // Placement pads: spaced-out roof tiles, each with a WallSlot (the logical spot) and a glowing plate (the visual).
         void BuildSlots(Transform root, List<PlacementPads.PadInfo> pads)
         {
-            slots = new WallSlot[grid.CellCount];
-            var slotRoot = new GameObject("WallSlots").transform;
+            slotList.Clear();
+            usingAuthoredPads = false;
+
+            // Pads you placed in the scene (Tools > Pads) take over completely: their positions are never regenerated.
+            foreach (WallSlot s in FindObjectsByType<WallSlot>(FindObjectsSortMode.None))
+                if (!s.transform.IsChildOf(transform)) slotList.Add(s);
+            if (slotList.Count > 0) { usingAuthoredPads = true; return; }
+
+            // No pads in the scene: generate a default set so the game still works.
+            slotRoot = new GameObject("WallSlots").transform;
             slotRoot.SetParent(root, false);
 
             foreach (PlacementPads.PadInfo p in pads)
             {
-                int index = grid.Index(p.cell.x, p.cell.y);
                 var go = new GameObject("Slot");
                 go.transform.SetParent(slotRoot, false);
                 go.transform.position = grid.Origin + PlacementPads.MountLocal(grid, level, p) + Vector3.up * (level.wallHeight + PlacementPads.Lift);
+                go.transform.rotation = Quaternion.LookRotation(new Vector3(p.toRoad.x, 0f, p.toRoad.y));
                 WallSlot slot = go.AddComponent<WallSlot>();
-                slot.Init(p.cell.x, p.cell.y, index, p.toRoad, PlacementPads.FrontOffset(grid, level));
-                slots[index] = slot;
+                slot.Configure(PlacementPads.FrontOffset(grid, level), false, 2f, level.padSize, null);
+                slotList.Add(slot);
             }
 
             if (!level.showPads || pads.Count == 0) return;
-            var visual = new GameObject("PlacementPads");
+            MakePadVisual(root, "PlacementPads", PlacementPads.BuildMesh(grid, pads, level));
+        }
+
+        // Default pads on the road behind each police car (only when the scene has no pads of its own).
+        void BuildBarricadeSlots(Transform root, PoliceBarricade barricade)
+        {
+            if (usingAuthoredPads || slotRoot == null) return;
+            List<PoliceBarricade.GroundSlot> planned = barricade.PlanSlots(grid, level);
+            if (planned.Count == 0) return;
+
+            float half = PlacementPads.HalfPad(grid, level);
+            const float groundLift = 0.08f; // above the road floor (0.02) so the plate always shows
+            var centres = new List<Vector3>(planned.Count);
+            foreach (PoliceBarricade.GroundSlot g in planned)
+            {
+                var go = new GameObject("CarSlot");
+                go.transform.SetParent(slotRoot, false);
+                go.transform.position = grid.Origin + g.localCentre + Vector3.up * groundLift;
+                go.transform.rotation = Quaternion.LookRotation(new Vector3(g.facing.x, 0f, g.facing.y));
+                WallSlot slot = go.AddComponent<WallSlot>();
+                slot.Configure(PlacementPads.FrontOffset(grid, level), true, half + 0.4f, level.padSize, null);
+                slotList.Add(slot);
+                centres.Add(g.localCentre);
+            }
+
+            if (level.showPads) MakePadVisual(root, "BarricadePads", PlacementPads.BuildPlates(centres, half, groundLift));
+        }
+
+        void MakePadVisual(Transform root, string name, Mesh mesh)
+        {
+            var visual = new GameObject(name);
             visual.transform.SetParent(root, false);
-            visual.AddComponent<MeshFilter>().sharedMesh = PlacementPads.BuildMesh(grid, pads, level);
+            visual.AddComponent<MeshFilter>().sharedMesh = mesh;
             MeshRenderer mr = visual.AddComponent<MeshRenderer>();
             mr.sharedMaterials = new[]
             {

@@ -22,6 +22,7 @@ namespace ZombieTD.UI
 
         int lastVersion = -1, lastCountdown = -1, lastAlive = -1;
         bool lastWaveActive;
+        string manualFormat;
         string waveFormat, countdownFormat; // built once per level (contain the level name)
 
         void Start()
@@ -31,6 +32,7 @@ namespace ZombieTD.UI
                 ? string.Empty
                 : $"Level {LevelProgress.CurrentIndex + 1}: {LevelProgress.CurrentName}   -   ";
             waveFormat = title + "Wave {0} / {1}";
+            manualFormat = title + "Wave {0} / {1}   -   build your defence, then press Start  [Space]";
             countdownFormat = title + "Wave {0} / {1}   -   next wave in {2}s  [Space]";
             if (GameManager.Instance != null) GameManager.Instance.StateChanged += OnStateChanged;
             if (messageText != null) messageText.text = string.Empty;
@@ -64,6 +66,8 @@ namespace ZombieTD.UI
                 int total = spawner != null ? spawner.TotalWaves : gm.TotalWaves;
                 if (waveActive || gm.State != GameState.Playing)
                     waveText.SetText(waveFormat, gm.Wave, total);
+                else if (spawner != null && spawner.ManualStart)
+                    waveText.SetText(manualFormat, gm.Wave + 1, total);
                 else
                     waveText.SetText(countdownFormat, gm.Wave, total, countdown);
             }
@@ -72,7 +76,7 @@ namespace ZombieTD.UI
             if (alive != lastAlive)
             {
                 lastAlive = alive;
-                zombiesText.SetText("Zombies  {0}", alive);
+                if (zombiesText != null) zombiesText.SetText("Zombies  {0}", alive); // the counter can be deleted from the scene
             }
         }
 

@@ -101,18 +101,24 @@ namespace ZombieTD.Maze
 
         // ---------------------------------------------------------------- pad plates
 
-        /// <summary>One mesh for all pad plates. Submesh 0 = fill, submesh 1 = border.</summary>
+        /// <summary>One mesh for all roof pad plates. Submesh 0 = fill, submesh 1 = border.</summary>
         public static Mesh BuildMesh(MazeGrid g, List<PadInfo> pads, LevelData level)
         {
-            var verts = new List<Vector3>(pads.Count * 20);
-            var fill = new List<int>(pads.Count * 6);
-            var edge = new List<int>(pads.Count * 24);
-            float cs = g.CellSize, half = Mathf.Min(level.padSize, cs - 0.2f) * 0.5f, inner = half - EdgeWidth;
-            float y = level.wallHeight + Lift;
+            var centres = new List<Vector3>(pads.Count);
+            foreach (PadInfo p in pads) centres.Add(MountLocal(g, level, p));
+            return BuildPlates(centres, HalfPad(g, level), level.wallHeight + Lift);
+        }
 
-            foreach (PadInfo p in pads)
+        /// <summary>One mesh of square pad plates (fill + border) at the given grid-local centres, all at height y.</summary>
+        public static Mesh BuildPlates(List<Vector3> centres, float half, float y)
+        {
+            var verts = new List<Vector3>(centres.Count * 20);
+            var fill = new List<int>(centres.Count * 6);
+            var edge = new List<int>(centres.Count * 24);
+            float inner = half - EdgeWidth;
+
+            foreach (Vector3 c in centres)
             {
-                Vector3 c = MountLocal(g, level, p);
                 float cx = c.x, cz = c.z;
                 Quad(verts, fill, cx - inner, cz - inner, cx + inner, cz + inner, y);                 // fill
                 Quad(verts, edge, cx - half, cz - half, cx + half, cz - inner, y);                    // near border

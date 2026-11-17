@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3823035ffd5bab42a9b417f52413ec2, type: 3}
+  m_Name: Cop
+  m_EditorClassIdentifier: Assembly-CSharp::ZombieTD.Towers.WeaponData
+  displayName: Cop
+  cost: 12
+  unitPrefab: {fileID: 4623103478477013366, guid: e8402799234d00a43a87bcf87db2e937, type: 3}
+  icon: {fileID: 0}
+  slotCapacity: 20
+  formationSpacing: 0.5
+  setupVersion: 4
+  range: 14
+  fireRate: 2
+  defaultTargetMode: 1
+  turnSpeed: 420
+  aimTolerance: 10
+  damage: 2
+  knockback: 0.05
+  splashRadius: 0
+  splashDamageFraction: 0.5
+  damageOnRoof: 1
+  damageOnGround: 1
+  splashOnRoof: 1
+  splashOnGround: 1
+  magazineSize: 12
+  reloadTime: 1.8
+  reloadVersion: 1
+  spreadDegrees: 0
+  hitRadius: 0.45
+  effectEvery: 1
+  muzzleVfx: {fileID: 7851851791156083692, guid: 22558b01c9e622b468273b4c48a18391, type: 3}
+  hitVfx: {fileID: 7247980624931371095, guid: 7be4e7f27c7cf6d4cad80452a1a558b1, type: 3}
+  tracerPrefab: {fileID: 7227837742455419885, guid: 19e5929d47932c04985240f730782826, type: 3}
+  tracerLife: 0
+  shakeOnFire: 0.0005
+  shakeOnImpact: 0
+  fireSound: {fileID: 0}
+  fireVolume: 0.6

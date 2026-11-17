@@ -134,6 +134,15 @@ namespace ZombieTD.Enemies
                 desired += side * (Mathf.Sin(time * wobbleFrequency + phase) * wobbleAmount);
             }
 
+            // Anything standing on the road gets attacked: zombies nearby break off and go for it, then stand and chew.
+            if (!IsAttackingGate && manager.FindBait(Position, out Vector3 bait, out float contact))
+            {
+                Vector3 toBait = bait - Position;
+                toBait.y = 0f;
+                float d = toBait.magnitude;
+                desired = d > contact ? toBait / d : Vector3.zero;
+            }
+
             desired += Separation() * separationStrength;
             float len = desired.magnitude;
             if (len > 1f) desired /= len;

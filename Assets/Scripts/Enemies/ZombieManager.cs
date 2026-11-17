@@ -19,6 +19,14 @@ namespace ZombieTD.Enemies
         [SerializeField, Tooltip("Bucket size for targeting queries (world units).")] float spatialCellSize = 4f;
         [SerializeField] int initialCapacity = 2048;
 
+        [Header("Attacks on units")]
+        [SerializeField, Tooltip("Damage per second each zombie touching a pad on the road deals to the units on it.")]
+        float damagePerZombie = 3f;
+
+        [SerializeField, Tooltip("Zombies this close to a unit standing on the road leave the path and go for it.")]
+        float unitAggroRadius = 14f;
+
+        static readonly Zombie[] contactBuffer = new Zombie[256];
         Zombie[] active;
         int count;
         float gateDps; // summed by attacking zombies during the tick loop
@@ -68,6 +76,45 @@ namespace ZombieTD.Enemies
             if (gateDps > 0f && GameManager.Instance != null) GameManager.Instance.DamageBase(gateDps * dt);
 
             Spatial.Rebuild(active, count);
+            ChewOnRoadUnits(dt);
+        }
+
+        /// <summary>The nearest occupied road pad within the aggro radius, for a zombie at p. Few pads, so a plain loop is cheap.</summary>
+        internal bool FindBait(Vector3 p, out Vector3 position, out float contactDistance)
+        {
+            var pads = WallSlot.UnderAttack;
+            float best = unitAggroRadius * unitAggroRadius;
+            position = default;
+            contactDistance = 0f;
+            bool found = false;
+            for (int i = 0; i < pads.Count; i++)
+            {
+                WallSlot pad = pads[i];
+                if (pad == null) continue;
+                Vector3 m = pad.MountPoint;
+                float dx = m.x - p.x, dz = m.z - p.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 >= best) continue;
+                best = d2;
+                position = m;
+                contactDistance = pad.ContactRadius;
+                found = true;
+            }
+            return found;
+        }
+
+        // Zombies that reach a pad on the road attack whoever stands there. One spatial query per occupied pad.
+        void ChewOnRoadUnits(float dt)
+        {
+            var pads = WallSlot.UnderAttack;
+            for (int i = pads.Count - 1; i >= 0; i--)
+            {
+                WallSlot pad = pads[i];
+                if (pad == null) { pads.RemoveAt(i); continue; }
+                int n = Spatial.Query(pad.MountPoint, pad.ContactRadius + 1.2f, contactBuffer);
+                for (int k = 0; k < n; k++) contactBuffer[k] = null;
+                if (n > 0) pad.Damage(n * damagePerZombie * dt);
+            }
         }
 
         internal void AddGateDamage(float dps)

@@ -18,6 +18,8 @@ namespace ZombieTD.Enemies
 
         [Header("Waves")]
         [SerializeField, Min(1)] int totalWaves = 20;
+        [SerializeField, Tooltip("On: waves only start when you press Start Wave (or Space), so you can build first. Off: the countdown below starts them.")]
+        bool manualStart = true;
         [SerializeField] float firstWaveDelay = 15f;
         [SerializeField] float timeBetweenWaves = 10f;
 
@@ -48,6 +50,8 @@ namespace ZombieTD.Enemies
         public int TotalWaves => totalWaves;
         public bool IsWaveActive { get; private set; }
         public float Countdown { get; private set; }
+        /// <summary>True when waves wait for the player to press Start.</summary>
+        public bool ManualStart => manualStart;
         public int RemainingToSpawn { get; private set; }
 
         /// <summary>Raised with the wave number when a wave begins spawning.</summary>
@@ -56,6 +60,7 @@ namespace ZombieTD.Enemies
         MazeGrid grid;
         float spawnRate, spawnAccumulator, healthMul, speedMul, rewardMul;
         int spawnCursor;
+        bool startRequested;
 
         void Start()
         {
@@ -74,10 +79,15 @@ namespace ZombieTD.Enemies
 
             if (!IsWaveActive)
             {
-                Countdown -= dt;
                 Keyboard kb = Keyboard.current;
-                if (Countdown <= 0f || (kb != null && kb.spaceKey.wasPressedThisFrame))
-                    StartWave(CurrentWave + 1);
+                bool space = kb != null && kb.spaceKey.wasPressedThisFrame;
+                if (manualStart)
+                {
+                    if (startRequested || space) StartWave(CurrentWave + 1);
+                    return;
+                }
+                Countdown -= dt;
+                if (Countdown <= 0f || space) StartWave(CurrentWave + 1);
                 return;
             }
 
@@ -103,7 +113,7 @@ namespace ZombieTD.Enemies
         /// <summary>Starts the next wave immediately (e.g. from a UI button).</summary>
         public void SkipCountdown()
         {
-            if (!IsWaveActive) Countdown = 0f;
+            if (!IsWaveActive) { Countdown = 0f; startRequested = true; }
         }
 
         void StartWave(int wave)
@@ -117,6 +127,7 @@ namespace ZombieTD.Enemies
             rewardMul = Mathf.Pow(rewardGrowth, k);
             spawnAccumulator = 1f; // first zombie appears right away
             IsWaveActive = true;
+            startRequested = false;
             GameManager.Instance.SetWave(wave, totalWaves);
             WaveStarted?.Invoke(wave);
         }

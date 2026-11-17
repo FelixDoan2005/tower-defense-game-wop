@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3823035ffd5bab42a9b417f52413ec2, type: 3}
+  m_Name: Shotgunner
+  m_EditorClassIdentifier: Assembly-CSharp::ZombieTD.Towers.WeaponData
+  displayName: Shotgunner
+  cost: 45
+  unitPrefab: {fileID: 5417504575658980151, guid: 0e810dff34de4c44a8cf456488d6406c, type: 3}
+  icon: {fileID: 0}
+  slotCapacity: 20
+  formationSpacing: 0.5
+  setupVersion: 4
+  range: 12
+  fireRate: 1.2
+  defaultTargetMode: 1
+  turnSpeed: 400
+  aimTolerance: 14
+  damage: 3
+  pellets: 7
+  knockback: 0.5
+  splashRadius: 1.8
+  splashDamageFraction: 0.6
+  damageOnRoof: 0.3
+  damageOnGround: 2.5
+  splashOnRoof: 0
+  splashOnGround: 1
+  magazineSize: 6
+  reloadTime: 2.6
+  reloadVersion: 1
+  spreadDegrees: 12
+  hitRadius: 0.5
+  effectEvery: 1
+  muzzleVfx: {fileID: 6092756699762691507, guid: 4df662c7c19327246a9b0bf81a71ac30, type: 3}
+  hitVfx: {fileID: 725076380586805164, guid: 8c2164729ecc66f4884b17c213f5e2ef, type: 3}
+  tracerPrefab: {fileID: 7227837742455419885, guid: 19e5929d47932c04985240f730782826, type: 3}
+  tracerLife: 0
+  shakeOnFire: 0.003
+  shakeOnImpact: 0
+  fireSound: {fileID: 0}
+  fireVolume: 0.6

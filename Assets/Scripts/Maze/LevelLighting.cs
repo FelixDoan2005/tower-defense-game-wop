@@ -32,6 +32,11 @@ namespace ZombieTD.Maze
             if (level.windowGlowSpacing > 0) FacadeLights(root, grid, level, level.windowGlowSpacing, level.maxWindowGlow, 1);
             if (level.beaconSpacing > 0) Beacons(root, grid, level);
             if (level.roofLightSpacing > 0) RoofFloodlights(root, grid, level);
+            if (level.floorLightSpacing > 0) FloorLights(root, grid, level);
+
+            // The tall walls throw a fat shadow over half the road; soften it so the whole track stays readable.
+            Light sun = RenderSettings.sun;
+            if (sun != null && sun.shadowStrength > level.shadowStrength) sun.shadowStrength = level.shadowStrength;
 
             // Extra strobe pair halfway along the road (a wrecked emergency vehicle).
             if (level.strobes)
@@ -210,6 +215,21 @@ namespace ZombieTD.Maze
             if (c == null) return;
             if (Application.isPlaying) Object.Destroy(c);
             else Object.DestroyImmediate(c);
+        }
+
+        // Red lights on the road floor on an even grid, so the whole track is lit.
+        static void FloorLights(Transform root, MazeGrid g, LevelData level)
+        {
+            float cs = g.CellSize;
+            int step = level.floorLightSpacing, placed = 0;
+            var red = new Color(1f, 0.14f, 0.08f);
+            for (int z = 0; z < g.Height && placed < level.maxFloorLights; z++)
+            for (int x = 0; x < g.Width && placed < level.maxFloorLights; x++)
+            {
+                if (!g.IsWalkable(x, z) || x % step != 0 || z % step != 0) continue;
+                NewLight(root, "FloorLight", new Vector3((x + 0.5f) * cs, 1.6f, (z + 0.5f) * cs), LightType.Point, red, 5f, cs * 4f);
+                placed++;
+            }
         }
 
         // Slow red warning beacons on the roof edges.

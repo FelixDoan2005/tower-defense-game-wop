@@ -4,13 +4,12 @@ using ZombieTD.Towers;
 
 namespace ZombieTD.UI
 {
-    /// <summary>One card in the unit tray. Dragging it starts a placement through the UnitPlacer.</summary>
-    public class UnitCard : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    /// <summary>One card in the unit tray. Each click adds one of this unit to the selected pad.</summary>
+    public class UnitCard : MonoBehaviour, IPointerClickHandler
     {
         WeaponData data;
         UnitPlacer placer;
         CanvasGroup group;
-        bool dragging;
 
         public WeaponData Data => data;
 
@@ -22,25 +21,12 @@ namespace ZombieTD.UI
             if (group == null) group = gameObject.AddComponent<CanvasGroup>();
         }
 
-        /// <summary>Dims the card when the player can't afford it.</summary>
-        public void Refresh(bool affordable) => group.alpha = affordable ? 1f : 0.45f;
+        /// <summary>Dims the card when it can't be added right now (no pad selected, pad full or wrong kind, can't afford).</summary>
+        public void Refresh(bool usable) => group.alpha = usable ? 1f : 0.4f;
 
-        public void OnBeginDrag(PointerEventData e)
+        public void OnPointerClick(PointerEventData e)
         {
-            dragging = placer.CanStartDrag(data);
-            if (dragging) placer.BeginDrag(data);
-        }
-
-        public void OnDrag(PointerEventData e)
-        {
-            if (dragging) placer.Drag(e.position);
-        }
-
-        public void OnEndDrag(PointerEventData e)
-        {
-            if (!dragging) return;
-            dragging = false;
-            placer.EndDrag(e.position);
+            if (e.button == PointerEventData.InputButton.Left) placer.TryAddToSelected(data);
         }
     }
 }

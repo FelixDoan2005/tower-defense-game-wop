@@ -15,6 +15,7 @@ namespace ZombieTD.Core
 
         [SerializeField, Tooltip("Used when the level has no gate; a BaseGate overrides it.")] float baseMaxHealth = 600f;
         [SerializeField] int startingMoney = 300;
+        [SerializeField, Tooltip("Testing: everything is free and the balance stays at 999999. Untick for the real economy.")] bool infiniteMoney = true;
         [SerializeField, Tooltip("Freeze time on win/lose (camera keeps working).")] bool freezeOnGameOver = true;
 
         public float BaseHealth { get; private set; }
@@ -36,7 +37,7 @@ namespace ZombieTD.Core
             Instance = this;
             Time.timeScale = 1f;
             BaseHealth = baseMaxHealth;
-            Money = startingMoney;
+            Money = infiniteMoney ? 999999 : startingMoney;
         }
 
         void OnDestroy()
@@ -90,10 +91,18 @@ namespace ZombieTD.Core
 
         public bool CanAfford(int cost) => Money >= cost;
 
+        /// <summary>Gives back what a unit cost (when it's cleared from a pad). Does nothing with infinite money, since nothing was spent.</summary>
+        public void Refund(int cost)
+        {
+            if (infiniteMoney) return;
+            Money += cost;
+            Version++;
+        }
+
         public bool TrySpend(int cost)
         {
             if (Money < cost) return false;
-            Money -= cost;
+            if (!infiniteMoney) Money -= cost;
             Version++;
             return true;
         }

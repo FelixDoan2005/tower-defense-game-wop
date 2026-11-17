@@ -26,9 +26,23 @@ MonoBehaviour:
   aimTolerance: 8
   damage: 4
   knockback: 0.15
+  splashRadius: 0
+  splashDamageFraction: 0.5
+  damageOnRoof: 1
+  damageOnGround: 1
+  splashOnRoof: 1
+  splashOnGround: 1
+  magazineSize: 20
+  reloadTime: 2.5
+  reloadVersion: 1
+  spreadDegrees: 0
+  hitRadius: 0.45
+  effectEvery: 1
   muzzleVfx: {fileID: 6038256165402614814, guid: 00456b648dd2515488e49f11496f950b, type: 3}
   hitVfx: {fileID: 7247980624931371095, guid: 7be4e7f27c7cf6d4cad80452a1a558b1, type: 3}
   tracerPrefab: {fileID: 7227837742455419885, guid: 19e5929d47932c04985240f730782826, type: 3}
+  tracerLife: 0
   shakeOnFire: 0.0015
+  shakeOnImpact: 0
   fireSound: {fileID: 0}
   fireVolume: 0.6

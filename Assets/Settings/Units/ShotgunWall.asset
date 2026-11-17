@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3823035ffd5bab42a9b417f52413ec2, type: 3}
+  m_Name: ShotgunWall
+  m_EditorClassIdentifier: Assembly-CSharp::ZombieTD.Towers.WeaponData
+  displayName: Shotgun Wall
+  cost: 200
+  unitPrefab: {fileID: 4249805200325223770, guid: d9c104ae2d447ac4ca0a407d552284de, type: 3}
+  icon: {fileID: 0}
+  padKind: 1
+  slotCapacity: 3
+  formationSpacing: 2.8
+  setupVersion: 4
+  health: 1500
+  range: 30
+  fireRate: 4
+  defaultTargetMode: 0
+  turnSpeed: 0
+  aimTolerance: 180
+  shootOverOwnBuilding: 0
+  damage: 9
+  knockback: 0.6
+  splashRadius: 2.4
+  splashDamageFraction: 0.6
+  damageOnRoof: 1
+  damageOnGround: 2.5
+  splashOnRoof: 1
+  splashOnGround: 1
+  magazineSize: 30
+  reloadTime: 3
+  reloadVersion: 1
+  spreadDegrees: 12
+  pellets: 8
+  hitRadius: 0.5
+  effectEvery: 1
+  muzzleVfx: {fileID: 6092756699762691507, guid: 4df662c7c19327246a9b0bf81a71ac30, type: 3}
+  hitVfx: {fileID: 725076380586805164, guid: 8c2164729ecc66f4884b17c213f5e2ef, type: 3}
+  tracerPrefab: {fileID: 7227837742455419885, guid: 19e5929d47932c04985240f730782826, type: 3}
+  tracerLife: 0
+  shakeOnFire: 0.004
+  shakeOnImpact: 0
+  fireSound: {fileID: 0}
+  fireVolume: 0.6

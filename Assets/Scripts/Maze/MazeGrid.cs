@@ -11,6 +11,7 @@ namespace ZombieTD.Maze
     public class MazeGrid
     {
         readonly bool[] walkable;
+        readonly bool[] obstacle; // blocked tiles that are cars on the road rather than buildings
 
         public int Width { get; }
         public int Height { get; }
@@ -32,6 +33,7 @@ namespace ZombieTD.Maze
             CellSize = cellSize;
             Origin = origin;
             walkable = new bool[width * height];
+            obstacle = new bool[width * height];
         }
 
         public int Index(int x, int z) => z * Width + x;
@@ -49,10 +51,20 @@ namespace ZombieTD.Maze
         public void SetWalkable(int x, int z, bool value)
         {
             int i = Index(x, z);
+            if (value) obstacle[i] = false;
             if (walkable[i] == value) return;
             walkable[i] = value;
             Changed?.Invoke();
         }
+
+        /// <summary>Marks a blocked tile as a low obstacle (a police car), not a building: bullets fly over it.</summary>
+        public void MarkObstacle(int x, int z)
+        {
+            if (InBounds(x, z) && !walkable[Index(x, z)]) obstacle[Index(x, z)] = true;
+        }
+
+        /// <summary>True for a wall/building tile (blocked and not just a car sitting on the road).</summary>
+        public bool IsBuilding(int x, int z) => InBounds(x, z) && !walkable[z * Width + x] && !obstacle[z * Width + x];
 
         /// <summary>World position of the cell center at ground level.</summary>
         public Vector3 CellToWorld(int x, int z) =>

@@ -41,12 +41,174 @@ namespace ZombieTD.Maze
             return blockedTiles.Count;
         }
 
+        /// <summary>A placement slot on the road behind a car (the gate side).</summary>
+        public struct GroundSlot
+        {
+            public Vector2Int cell;
+            /// <summary>Grid-local centre on the ground.</summary>
+            public Vector3 localCentre;
+            /// <summary>Direction the squad faces (toward the zombies, i.e. toward the car).</summary>
+            public Vector2Int facing;
+        }
+
+        /// <summary>
+        /// One slot per car, on the gate side of the car (behind it, away from the zombies), just clear of its bumper,
+        /// with the squad facing the car so it works as cover. Skipped for a car whose spot is off the road or
+        /// overlaps another car or pad. Call after BlockTiles.
+        /// </summary>
+        public List<GroundSlot> PlanSlots(MazeGrid grid, LevelData level, bool inFront = false, float halfOverride = 0f)
+        {
+            var slots = new List<GroundSlot>();
+            if (grid.SpawnCells.Count == 0 || grid.GoalCells.Count == 0) return slots;
+
+            // Front = the direction zombies come from (goal -> spawn), snapped to a grid axis.
+            Vector2 spawn = Vector2.zero, goal = Vector2.zero;
+            foreach (Vector2Int c in grid.SpawnCells) spawn += c;
+            foreach (Vector2Int c in grid.GoalCells) goal += c;
+            Vector2 d = spawn / grid.SpawnCells.Count - goal / grid.GoalCells.Count;
+            Vector2Int front = Mathf.Abs(d.x) >= Mathf.Abs(d.y)
+                ? new Vector2Int(d.x >= 0f ? 1 : -1, 0)
+                : new Vector2Int(0, d.y >= 0f ? 1 : -1);
+            Vector3 frontVec = new Vector3(front.x, 0f, front.y);
+            float half = halfOverride > 0f ? halfOverride : PlacementPads.HalfPad(grid, level);
+
+            // The road's width, from where the spawns are spread: a pad centre must be inside it.
+            int crossMin = int.MaxValue, crossMax = int.MinValue;
+            foreach (Vector2Int c in grid.SpawnCells)
+            {
+                int cross = front.x != 0 ? c.y : c.x;
+                crossMin = Mathf.Min(crossMin, cross);
+                crossMax = Mathf.Max(crossMax, cross);
+            }
+
+            // World-space bodies of all active cars (to keep pads from sitting on top of another car).
+            var cars = new List<Transform>();
+            var bodies = new List<Bounds>();
+            foreach (Transform car in transform)
+            {
+                if (!car.gameObject.activeInHierarchy) continue;
+                Renderer[] rs = car.GetComponentsInChildren<Renderer>();
+                Bounds b = new Bounds(car.position, new Vector3(2f, 2f, 2f));
+                if (rs.Length > 0)
+                {
+                    b = rs[0].bounds;
+                    for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+                }
+                cars.Add(car);
+                bodies.Add(b);
+            }
+
+            for (int i = 0; i < cars.Count; i++)
+            {
+                // The pad sits behind the car (gate side), just clear of its rear bumper, so the car is cover.
+                float reach = Mathf.Abs(front.x) > 0 ? bodies[i].extents.x : bodies[i].extents.z;
+                // inFront: on the zombie side instead (the Shotgun Wall pads), so the wall stands between the horde and the car.
+                Vector3 world = cars[i].position + (inFront ? frontVec : -frontVec) * (reach + half + 0.25f);
+
+                if (!grid.WorldToCell(world, out int cx, out int cz)) continue;
+                int crossCell = front.x != 0 ? cz : cx;
+                if (crossCell < crossMin || crossCell > crossMax) continue; // off the road
+
+                // Don't put a pad on top of another car, or on top of another pad.
+                bool blocked = false;
+                for (int j = 0; j < cars.Count && !blocked; j++)
+                {
+                    if (j == i) continue;
+                    Bounds b = bodies[j];
+                    blocked = Mathf.Abs(world.x - b.center.x) < half + b.extents.x && Mathf.Abs(world.z - b.center.z) < half + b.extents.z;
+                }
+                foreach (GroundSlot s in slots)
+                {
+                    Vector3 other = grid.Origin + s.localCentre;
+                    if (Mathf.Abs(world.x - other.x) < half * 1.4f && Mathf.Abs(world.z - other.z) < half * 1.4f) { blocked = true; break; }
+                }
+                if (blocked) continue;
+
+                slots.Add(new GroundSlot
+                {
+                    cell = new Vector2Int(cx, cz),
+                    localCentre = new Vector3(world.x - grid.Origin.x, 0f, world.z - grid.Origin.z),
+                    facing = front,
+                });
+            }
+            return slots;
+        }
+
+        /// <summary>
+        /// Wall pads: a row of pads across the whole road, side by side, just in front of the frontmost car (zombie side).
+        /// Each is about targetWidth wide (the road is split evenly), so they never overlap. Returns grid-local centres.
+        /// </summary>
+        public List<GroundSlot> PlanWallLine(MazeGrid grid, LevelData level, float depth, float targetWidth, out float width)
+        {
+            var slots = new List<GroundSlot>();
+            width = targetWidth;
+            if (grid.SpawnCells.Count == 0 || grid.GoalCells.Count == 0) return slots;
+
+            Vector2 spawn = Vector2.zero, goal = Vector2.zero;
+            foreach (Vector2Int c in grid.SpawnCells) spawn += c;
+            foreach (Vector2Int c in grid.GoalCells) goal += c;
+            Vector2 d = spawn / grid.SpawnCells.Count - goal / grid.GoalCells.Count;
+            bool alongX = Mathf.Abs(d.x) >= Mathf.Abs(d.y);
+            Vector2Int front = alongX ? new Vector2Int(d.x >= 0f ? 1 : -1, 0) : new Vector2Int(0, d.y >= 0f ? 1 : -1);
+            float sign = alongX ? front.x : front.y;
+
+            // The road's extent across (from where the spawns are spread), in world units.
+            int crossMin = int.MaxValue, crossMax = int.MinValue;
+            foreach (Vector2Int c in grid.SpawnCells)
+            {
+                int cross = alongX ? c.y : c.x;
+                crossMin = Mathf.Min(crossMin, cross);
+                crossMax = Mathf.Max(crossMax, cross);
+            }
+            float crossOrigin = alongX ? grid.Origin.z : grid.Origin.x;
+            float roadStart = crossOrigin + crossMin * grid.CellSize;
+            float roadWidth = (crossMax - crossMin + 1) * grid.CellSize;
+
+            // The frontmost point of any car along the front direction: the wall line starts just beyond it.
+            float lineEdge = float.NegativeInfinity;
+            bool anyCar = false;
+            foreach (Transform car in transform)
+            {
+                if (!car.gameObject.activeInHierarchy) continue;
+                Renderer[] rs = car.GetComponentsInChildren<Renderer>();
+                Bounds b = new Bounds(car.position, new Vector3(2f, 2f, 2f));
+                if (rs.Length > 0)
+                {
+                    b = rs[0].bounds;
+                    for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+                }
+                float edge = alongX ? (sign > 0 ? b.max.x : -b.min.x) : (sign > 0 ? b.max.z : -b.min.z);
+                lineEdge = Mathf.Max(lineEdge, edge);
+                anyCar = true;
+            }
+            if (!anyCar) return slots;
+
+            float along = sign * (lineEdge + 0.25f + depth * 0.5f);
+
+            int count = Mathf.Max(1, Mathf.RoundToInt(roadWidth / targetWidth));
+            width = roadWidth / count;
+            for (int k = 0; k < count; k++)
+            {
+                float cross = roadStart + (k + 0.5f) * width;
+                Vector3 world = alongX ? new Vector3(along, grid.Origin.y, cross) : new Vector3(cross, grid.Origin.y, along);
+                if (!grid.WorldToCell(world, out int cx, out int cz)) continue;
+                slots.Add(new GroundSlot
+                {
+                    cell = new Vector2Int(cx, cz),
+                    localCentre = new Vector3(world.x - grid.Origin.x, 0f, world.z - grid.Origin.z),
+                    facing = front,
+                });
+            }
+            return slots;
+        }
+
         static void Block(MazeGrid grid, int x, int z, List<Vector2Int> list)
         {
             if (!grid.IsWalkable(x, z)) return;
             var cell = new Vector2Int(x, z);
             if (grid.SpawnCells.Contains(cell) || grid.GoalCells.Contains(cell)) return;
             grid.SetWalkable(x, z, false);
+            grid.MarkObstacle(x, z); // a car, not a building: shots pass over it
             list.Add(cell);
         }
 
